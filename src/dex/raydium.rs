@@ -1,13 +1,9 @@
 use crate::{
-    common::{
-        logger::Logger,
-        utils::{SwapConfig, import_env_var},
-    },
     core::{
         token::{get_account_info, get_associated_token_address, get_mint_info},
         tx,
     },
-    engine::swap::{SwapDirection, SwapInType},
+    engine::swap::{SwapDirection, SwapConfig},
 };
 
 use anyhow::{Context, Result, anyhow};

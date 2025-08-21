@@ -1,18 +1,23 @@
-use std::env;
-use std::sync::Arc;
-use solana_sdk::{self, signature::Keypair};
-use solana_sdk::commitment_config::CommitmentConfig;
 use anyhow::Result;
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::{self, signature::Keypair};
+use std::env;
+use std::ffi::{OsStr, OsString};
+use std::str::FromStr;
+use std::sync::Arc;
 
-pub fn import_env_var<T>(key: &str) -> T {
+pub fn import_env_var(key: &str) -> String {
     env::var(key).unwrap_or_else(|_| panic!("Environment variable {} is not set", key))
 }
 
-pub fn import_env_var_with_default<T>(key: &str, val: T) -> T {
-    env::var(key).unwrap_or_else(|_| panic!("Environment variable {} is not set", key))
+pub fn import_env_var_with_default<T: FromStr>(key: &str, val: T) -> T {
+    env::var(key)
+        .unwrap_or_default()
+        .parse::<T>()
+        .unwrap_or(val)
 }
 
-pub fn import_env_var_with_option<T>(key: &str, val: T) -> Option<T> {
+pub fn import_env_var_with_option(key: &str) -> Option<OsString> {
     env::var_os(key)
 }
 
@@ -32,8 +37,8 @@ pub fn create_rpc_client() -> Result<Arc<solana_client::rpc_client::RpcClient>> 
     Ok(Arc::new(rpc_client))
 }
 
-
-pub async fn create_nonblocking_rpc_client() -> Result<Arc<solana_client::nonblocking::rpc_client::RpcClient>> {
+pub async fn create_nonblocking_rpc_client()
+-> Result<Arc<solana_client::nonblocking::rpc_client::RpcClient>> {
     let rpc_https = import_env_var("RPC_HTTPS");
     let rpc_client = solana_client::nonblocking::rpc_client::RpcClient::new_with_commitment(
         rpc_https,

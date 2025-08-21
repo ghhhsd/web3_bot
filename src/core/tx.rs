@@ -15,10 +15,13 @@ use spl_token::ui_amount_to_amount;
 
 use solana_compute_budget_interface::ComputeBudgetInstruction;
 
+use crate::service::jito::{get_jito_sdk, get_tip_value, wait_for_bundle_confirmation};
+use crate::utils::jjj::{create_nonblocking_rpc_client, import_env_var};
+use serde_json::json;
+use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use tokio::time::Instant;
-
-use crate::service::jito::{self, get_tip_account, get_tip_value, wait_for_bundle_confirmation};
+use uuid::uuid;
 
 // prioritization fee = UNIT_PRICE * UNIT_LIMIT
 fn get_unit_price() -> u64 {
@@ -40,6 +43,7 @@ pub async fn new_signed_and_send(
     keypair: &Keypair,
     mut instructions: Vec<Instruction>,
     use_jito: bool,
+    uuid_string: Option<String>,
 ) -> Result<Vec<String>> {
     let unit_price = get_unit_price();
     let unit_limit = get_unit_limit();
@@ -63,21 +67,23 @@ pub async fn new_signed_and_send(
     let mut txs = vec![];
     if use_jito {
         // jito
-        let tip_account = get_tip_account().await?;
-        let jito_client = Arc::new(JitoRpcClient::new(format!(
-            "{}/api/v1/bundles",
-            *jito::BLOCK_ENGINE_URL
-        )));
-        // jito tip, the upper limit is 0.1
-        let mut tip = get_tip_value().await?;
-        tip = tip.min(0.1);
+
+        let jito_sdk = get_jito_sdk(uuid_string.clone());
+        let jito_client = Arc::new(jito_sdk);
+        let tip_account = jito_client.get_random_tip_account().await?;
+        let tip_account = Pubkey::from_str(&tip_account)?;
+        // let jito_client = Arc::new(JitoRpcClient::new(format!(
+        //     "{}/api/v1/bundles",
+        //     *jito::BLOCK_ENGINE_URL
+        // )));
+        let tip = get_tip_value();
         let tip_lamports = ui_amount_to_amount(tip, spl_token::native_mint::DECIMALS);
         info!(
             "tip account: {}, tip(sol): {}, lamports: {}",
             tip_account, tip, tip_lamports
         );
         // tip tx
-        let bundle: Vec<VersionedTransaction> = vec![
+        let transactions: Vec<VersionedTransaction> = vec![
             VersionedTransaction::from(txn),
             VersionedTransaction::from(system_transaction::transfer(
                 keypair,
@@ -86,18 +92,23 @@ pub async fn new_signed_and_send(
                 recent_blockhash,
             )),
         ];
-        let bundle_id = jito_client.send_bundle(&bundle).await?;
+
+        let bundle = json!(transactions);
+        let bundle_id = jito_client
+            .send_bundle(Some(bundle), uuid_string.as_deref())
+            .await?;
+        let bundle_id = bundle_id.to_string();
         info!("bundle_id: {}", bundle_id);
 
         txs = wait_for_bundle_confirmation(
             move |id: String| {
                 let client = Arc::clone(&jito_client);
                 async move {
-                    let response = client.get_bundle_statuses(&[id]).await;
+                    let response = client.get_bundle_statuses(vec![id]).await;
                     let statuses = response.inspect_err(|err| {
                         info!("Error fetching bundle status: {:?}", err);
                     })?;
-                    Ok(statuses.value)
+                    Ok(statuses)
                 }
             },
             bundle_id,
@@ -106,7 +117,8 @@ pub async fn new_signed_and_send(
         )
         .await?;
     } else {
-        let sig = common::rpc::send_txn(client, &txn, true)?;
+        let aaa = create_nonblocking_rpc_client().await?;
+        let sig = aaa.send_transaction(&txn).await?;
         info!("signature: {:#?}", sig);
         txs.push(sig.to_string());
     }

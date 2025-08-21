@@ -3,7 +3,8 @@ use std::{str::FromStr, sync::Arc};
 use anyhow::{anyhow, Context, Result};
 use borsh::from_slice;
 use borsh_derive::{BorshDeserialize, BorshSerialize};
-use raydium_amm::math::U128;
+use log::{error, info};
+// use raydium_amm::math::U128;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
@@ -19,10 +20,10 @@ use spl_token::{amount_to_ui_amount, ui_amount_to_amount};
 use spl_token_client::token::TokenError;
 
 use crate::{
-    common::{logger::Logger, utils::SwapConfig},
     core::{token, tx},
-    engine::swap::{SwapDirection, SwapInType},
+    engine::swap::{SwapDirection, SwapConfig},
 };
+
 pub const TEN_THOUSAND: u64 = 10000;
 pub const TOKEN_PROGRAM: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 pub const RENT_PROGRAM: &str = "SysvarRent111111111111111111111111111111111";
@@ -64,8 +65,8 @@ impl Pump {
         let native_mint = spl_token::native_mint::ID;
 
         let (token_in, token_out, pump_method) = match swap_config.swap_direction {
-            SwapDirection::Buy => (native_mint, mint, PUMP_BUY_METHOD),
-            SwapDirection::Sell => (mint, native_mint, PUMP_SELL_METHOD),
+            SwapDirection::PC2Coin => (native_mint, mint, PUMP_BUY_METHOD),
+            SwapDirection::Coin2PC => (mint, native_mint, PUMP_SELL_METHOD),
         };
         let pump_program = Pubkey::from_str(PUMP_PROGRAM)?;
         let (bonding_curve, associated_bonding_curve, bonding_curve_account) =

@@ -1,13 +1,12 @@
-use std::path::Path;
 use dotenv::dotenv;
 use log::info;
+use std::path::Path;
 
-mod utils;
 mod core;
+mod dex;
 mod engine;
 mod service;
-mod dex;
-
+mod utils;
 
 #[tokio::main]
 async fn main() {
@@ -21,8 +20,7 @@ async fn main() {
         return;
     }
 
+    // utils::jjj::import_env_var();
 
-    utils::jjj::import_env_var();
-
-    info!("{}","kkkk");
+    // info!("{}","kkkk");
 }
